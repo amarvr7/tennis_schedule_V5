@@ -1,0 +1,12 @@
+# Supabase project configuration for the Academy Scheduling App.
+# Run `supabase link --project-ref <ref>` then `supabase db push` to apply migrations.
+
+project_id = "tennis-academy-scheduler"
+
+[db]
+# Local dev Postgres version. Supabase hosted projects run Postgres 15+.
+major_version = 15
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
