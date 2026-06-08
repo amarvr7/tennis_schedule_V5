@@ -123,7 +123,7 @@ const CoachDetailPage = async ({ params }: { params: { id: string } }) => {
                     <p className="flex items-center gap-2 text-sm font-medium text-foreground">
                       {RULE_LABELS[entry.rule_type] ?? entry.rule_type}
                       {entry.effective_to === null ? (
-                        <Badge variant="outline" className="text-green-700">
+                        <Badge variant="outline" className="text-emerald-700 dark:text-emerald-400">
                           Current
                         </Badge>
                       ) : null}

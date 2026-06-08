@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  AiMagicIcon,
   ArrowLeft01Icon,
   ArrowRight01Icon,
   CheckmarkBadge02Icon,
@@ -30,8 +31,15 @@ import {
   computeSessionConflicts,
   isBlocking,
 } from "@/lib/schedule/conflicts";
-import { assignCoach, publishWeek, unassignCoach } from "./actions";
+import {
+  assignCoach,
+  generateDraft,
+  publishWeek,
+  unassignCoach,
+  type GenerationSummary,
+} from "./actions";
 import { AssignmentPanel } from "./AssignmentPanel";
+import { GenerationReport } from "./GenerationReport";
 import { SessionCard, type AssignedCoach } from "./SessionCard";
 
 type ScheduleBuilderProps = {
@@ -65,6 +73,7 @@ export const ScheduleBuilder = ({
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [publishNotice, setPublishNotice] = useState<string | null>(null);
+  const [generationSummary, setGenerationSummary] = useState<GenerationSummary | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Re-sync with canonical server data after each router.refresh().
@@ -189,9 +198,25 @@ export const ScheduleBuilder = ({
     });
   };
 
+  const handleGenerate = () => {
+    setActionError(null);
+    setPublishNotice(null);
+    setGenerationSummary(null);
+    startTransition(async () => {
+      const result = await generateDraft(weekStartDate);
+      if (!result.ok && result.error) {
+        setActionError(result.error);
+      } else if (result.summary) {
+        setGenerationSummary(result.summary);
+      }
+      router.refresh();
+    });
+  };
+
   const handlePublish = () => {
     setActionError(null);
     setPublishNotice(null);
+    setGenerationSummary(null);
     startTransition(async () => {
       const result = await publishWeek(weekStartDate);
       if (!result.ok && result.error) {
@@ -246,6 +271,18 @@ export const ScheduleBuilder = ({
 
           <Button
             type="button"
+            variant="outline"
+            size="lg"
+            onClick={handleGenerate}
+            disabled={isPending}
+            aria-label="Generate a draft schedule for this week"
+          >
+            <HugeiconsIcon icon={AiMagicIcon} strokeWidth={2} aria-hidden="true" />
+            {isPending ? "Generating…" : "Generate draft"}
+          </Button>
+
+          <Button
+            type="button"
             size="lg"
             onClick={handlePublish}
             disabled={isPending || !hasUnpublished}
@@ -272,9 +309,15 @@ export const ScheduleBuilder = ({
         </p>
       ) : null}
       {publishNotice ? (
-        <p role="status" className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">
+        <p role="status" className="rounded-md bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300">
           {publishNotice}
         </p>
+      ) : null}
+      {generationSummary ? (
+        <GenerationReport
+          summary={generationSummary}
+          onDismiss={() => setGenerationSummary(null)}
+        />
       ) : null}
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">

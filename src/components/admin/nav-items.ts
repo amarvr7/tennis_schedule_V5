@@ -3,6 +3,7 @@ import {
   UserGroupIcon,
   Alert02Icon,
   ChampionIcon,
+  ChartHistogramIcon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 
@@ -18,4 +19,5 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { label: "Coaches", href: "/admin/coaches", icon: UserGroupIcon },
   { label: "Conflicts", href: "/admin/conflicts", icon: Alert02Icon },
   { label: "Tournaments", href: "/admin/tournaments", icon: ChampionIcon },
+  { label: "Reports", href: "/admin/reports", icon: ChartHistogramIcon },
 ];

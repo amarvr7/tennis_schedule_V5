@@ -48,7 +48,7 @@ export type SessionType =
 /** Physical location of a session's courts. Far campuses gate the zone rule. */
 export type Campus = "main" | "west" | "legacy";
 
-export type AssignmentRole = "lead" | "assistant" | "coverage";
+export type AssignmentRole = "lead" | "assistant" | "coverage" | "driver";
 
 export type AvailabilityStatus =
   | "available"
@@ -74,7 +74,8 @@ export type ConflictType =
   | "meeting_block"
   | "rest_day"
   | "program_restriction"
-  | "max_travel";
+  | "max_travel"
+  | "no_drive";
 
 /** Output shape, per CURSOR_CONTEXT.md: { type, severity, coachId, sessionId, message }. */
 export interface Conflict {
@@ -120,6 +121,7 @@ export interface ConflictCoach {
   middayBlockEnd: string | null;
   noCamp: boolean;
   noBt: boolean;
+  noDrive: boolean;
   programRestriction: string | null; // null | adults_only
 }
 
@@ -568,6 +570,20 @@ export const checkRestDay = (input: ConflictCheckInput): Conflict | null => {
   };
 };
 
+/** 14a. No driving — coach.no_drive && assignment.role === 'driver'. */
+export const checkNoDrive = (input: ConflictCheckInput): Conflict | null => {
+  const { coach, assignment } = input;
+  if (!coach.noDrive || assignment.role !== "driver") return null;
+
+  return {
+    type: "no_drive",
+    severity: "hard",
+    coachId: coach.id,
+    sessionId: assignment.session.id,
+    message: "Coach cannot be assigned as driver.",
+  };
+};
+
 /** 14. Program restriction — adults_only coach in a non-adult session. */
 export const checkProgramRestriction = (input: ConflictCheckInput): Conflict | null => {
   const { coach, assignment } = input;
@@ -619,6 +635,7 @@ export const CONFLICT_RULES: ReadonlyArray<(input: ConflictCheckInput) => Confli
   checkMeetingBlock,
   checkRestDay,
   checkProgramRestriction,
+  checkNoDrive,
   checkMaxTravel,
 ];
 

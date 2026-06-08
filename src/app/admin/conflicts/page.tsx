@@ -4,7 +4,7 @@ import { ComingSoon } from "@/components/admin/ComingSoon";
 import { requireAdminCoach } from "@/lib/auth/requireAdmin";
 
 export const metadata = {
-  title: "Conflicts · Admin",
+  title: "Conflicts · IMG Academy Tennis",
 };
 
 const ConflictsPage = async () => {

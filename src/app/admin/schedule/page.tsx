@@ -20,13 +20,13 @@ import { normalizeWeekStart } from "@/lib/schedule/grid";
 import { ScheduleBuilder } from "./ScheduleBuilder";
 
 export const metadata = {
-  title: "Schedule Builder · Admin",
+  title: "Schedule Builder · IMG Academy Tennis",
 };
 
 const SESSION_SELECT =
   "id, program_id, day_of_week, start_time, end_time, court_zone, court_numbers, surface, notes, programs ( id, name, type )";
 const COACH_SELECT =
-  "id, full_name, initials, title, season, season_start, season_end, earliest_start, latest_end, midday_block_start, midday_block_end, no_camp, no_bt, program_restriction, is_active";
+  "id, full_name, initials, title, season, season_start, season_end, earliest_start, latest_end, midday_block_start, midday_block_end, no_camp, no_bt, no_drive, program_restriction, is_active";
 
 type SearchParams = { week?: string };
 

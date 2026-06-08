@@ -51,7 +51,7 @@ export const SessionCard = ({
   isSelected,
   onSelect,
 }: SessionCardProps) => {
-  const accent = session.type ? TYPE_ACCENT[session.type] : "border-l-gray-300";
+  const accent = session.type ? TYPE_ACCENT[session.type] : "border-l-muted-foreground/40";
   const hasConflict = blockingConflicts > 0;
 
   return (

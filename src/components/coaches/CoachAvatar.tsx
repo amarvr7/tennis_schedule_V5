@@ -23,7 +23,7 @@ export const CoachAvatar = ({ fullName, initials, size = "sm" }: CoachAvatarProp
   return (
     <span
       aria-hidden="true"
-      className={`flex shrink-0 items-center justify-center rounded-lg bg-gray-900 font-semibold tracking-wide text-white ${SIZE_CLASSES[size]}`}
+      className={`flex shrink-0 items-center justify-center rounded-lg bg-primary font-semibold tracking-wide text-primary-foreground ${SIZE_CLASSES[size]}`}
     >
       {label}
     </span>

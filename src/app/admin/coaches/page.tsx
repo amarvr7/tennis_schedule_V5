@@ -19,7 +19,7 @@ import type { CoachListItem } from "@/lib/coaches/rules";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = {
-  title: "Coaches · Admin",
+  title: "Coaches · IMG Academy Tennis",
 };
 
 const CoachesPage = async () => {

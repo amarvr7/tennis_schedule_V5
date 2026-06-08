@@ -21,6 +21,7 @@ supabase/.temp
 
 # misc
 .DS_Store
+.firecrawl/
 *.pem
 npm-debug.log*
 yarn-debug.log*

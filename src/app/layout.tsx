@@ -7,14 +7,14 @@ import { cn } from "@/lib/utils";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Academy Scheduling",
-  description: "Scheduling app for the tennis academy.",
+  title: "IMG Academy Tennis",
+  description: "Scheduling app for IMG Academy Tennis.",
 };
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
-    <html lang="en" className={cn("font-sans", inter.variable)}>
-      <body className="min-h-screen bg-white text-gray-900 antialiased">
+    <html lang="en" className={cn("dark font-sans", inter.variable)}>
+      <body className="min-h-screen bg-background text-foreground antialiased">
         {children}
       </body>
     </html>

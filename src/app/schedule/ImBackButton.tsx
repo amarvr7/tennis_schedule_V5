@@ -49,7 +49,7 @@ export const ImBackButton = ({ weekStartDate }: ImBackButtonProps) => {
       </Button>
 
       {result?.ok ? (
-        <span className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-emerald-600">
+        <span className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-emerald-600 dark:text-emerald-400">
           <HugeiconsIcon icon={CheckmarkCircle02Icon} size={12} aria-hidden="true" />
           Travel block cleared · {result.adminsNotified} admin
           {result.adminsNotified === 1 ? "" : "s"} notified

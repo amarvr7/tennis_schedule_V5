@@ -13,6 +13,7 @@ import {
   type AvailabilityRecord,
   type Conflict,
   type ConflictCheckInput,
+  type ConflictConfig,
   checkAllConflicts,
 } from "@/lib/conflicts";
 import type { GridAssignment, GridCoach, GridSession } from "./model";
@@ -110,6 +111,8 @@ export const evaluateCandidate = (
   activeContexts: AssignmentContext[],
   availability: AvailabilityRecord[],
   role: AssignmentContext["role"] = "lead",
+  config?: Partial<ConflictConfig>,
+  consecutiveTravelWeeks?: number,
 ): Conflict[] => {
   const candidate: AssignmentContext = {
     id: `${SYNTHETIC_ID_PREFIX}:${coach.id}:${session.id}`,
@@ -128,7 +131,38 @@ export const evaluateCandidate = (
     // the rest of the week.
     weekAssignments: [...activeContexts, candidate],
     availability,
+    consecutiveTravelWeeks,
+    config,
   };
 
   return checkAllConflicts(input);
+};
+
+export const computeSessionConflictsWithTravel = (
+  assignments: GridAssignment[],
+  data: ConflictEngineData,
+  consecutiveTravelWeeksByCoach: Map<string, number>,
+): Map<string, Conflict[]> => {
+  const activeContexts = buildActiveContexts(assignments, data.sessionsById);
+  const bySession = new Map<string, Conflict[]>();
+
+  for (const context of activeContexts) {
+    const coach = data.coachesById.get(context.coachId);
+    if (!coach) continue;
+
+    const conflicts = checkAllConflicts({
+      assignment: context,
+      coach,
+      weekAssignments: activeContexts,
+      availability: data.availability,
+      consecutiveTravelWeeks: consecutiveTravelWeeksByCoach.get(context.coachId),
+    });
+    if (conflicts.length === 0) continue;
+
+    const existing = bySession.get(context.sessionId) ?? [];
+    existing.push(...conflicts);
+    bySession.set(context.sessionId, existing);
+  }
+
+  return bySession;
 };

@@ -59,6 +59,8 @@ export interface RawCoach {
   midday_block_end: string | null;
   no_camp: boolean;
   no_bt: boolean;
+  no_drive: boolean;
+  travel_restricted: boolean;
   program_restriction: string | null;
   is_active: boolean;
 }
@@ -155,7 +157,12 @@ const AVAILABILITY_STATUSES: ReadonlyArray<AvailabilityStatus> = [
   "orientation",
 ];
 
-const ROLES: ReadonlyArray<AssignmentRole> = ["lead", "assistant", "coverage"];
+const ROLES: ReadonlyArray<AssignmentRole> = [
+  "lead",
+  "assistant",
+  "coverage",
+  "driver",
+];
 
 const asSessionType = (value: string | null): SessionType | null =>
   value && (SESSION_TYPES as readonly string[]).includes(value)
@@ -266,6 +273,7 @@ export const toGridCoach = (row: RawCoach): GridCoach => ({
   middayBlockEnd: normalizeTime(row.midday_block_end),
   noCamp: row.no_camp,
   noBt: row.no_bt,
+  noDrive: row.no_drive,
   programRestriction: row.program_restriction,
   isActive: row.is_active,
 });

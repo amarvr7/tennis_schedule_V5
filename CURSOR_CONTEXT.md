@@ -387,3 +387,38 @@ function checkAllConflicts(assignment, allAssignments, coach, session, coachAvai
 - **Camp volume rule:** When camp head count exceeds 20, PM camp shifts from 2:30-4:30pm to 3:00-5:00pm. Admin or camp lead triggers. Assigned coaches notified.
 - **BT override:** Admin can override No BT rule but must confirm. Affected coach is notified automatically.
 - **Historical records:** Never delete. Rule changes store old rule with end date, new rule with start date.
+
+---
+
+## Brand & Visual Identity
+
+Source of truth: `docs/brand/IMGAcademy_BrandBook_05.2024.pdf` (IMG Academy Brand Book, May 2024).
+
+### Brand assets (in repo)
+
+| Asset | Path | Usage |
+|-------|------|-------|
+| Tennis wordmark | `public/brand/img-academy-tennis-wordmark.png` | Sign-in and coach home — horizontal IMG Academy Tennis lock-up on a white panel (do not invert in dark mode) |
+| Ascender mark | `public/brand/ascender-mark.png` | Top-left home navigation on authenticated screens — extracted from brand book digital/email signature specs |
+
+Both link to `/`, which redirects by role (`/schedule` for coaches, `/admin/schedule` for admins).
+
+### Brand colors (dark mode UI)
+
+App stays in dark mode. Primary actions and accents use IMG Blue from the brand book:
+
+| Name | Pantone | HEX | RGB |
+|------|---------|-----|-----|
+| IMG Blue | 2935 C | `#0057B8` | R 0 G 85 B 184 |
+| White | — | `#FFFFFF` | R 255 G 255 B 255 |
+| Black | — | `#000000` | R 0 G 0 B 0 |
+
+Applied via `--primary` and `--sidebar-primary` in `src/app/globals.css`.
+
+### Typography
+
+Brand book specifies Trade Gothic Next LT Pro and Serifa. The app uses **Inter** (already in stack) until licensed web fonts are provided.
+
+### App naming
+
+Product title: **IMG Academy Tennis** (metadata, page titles, admin footer).

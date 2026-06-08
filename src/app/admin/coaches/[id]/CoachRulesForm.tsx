@@ -194,14 +194,14 @@ export const CoachRulesForm = ({ coachId, initialRules }: CoachRulesFormProps) =
 
       <div className="flex items-center gap-3">
         <SaveButton disabled={!isDirty} />
-        {isDirty ? <span className="text-xs text-amber-600">Unsaved changes</span> : null}
+        {isDirty ? <span className="text-xs text-amber-600 dark:text-amber-400">Unsaved changes</span> : null}
         {state.error ? (
           <span role="alert" className="text-sm text-destructive">
             {state.error}
           </span>
         ) : null}
         {!state.error && state.message ? (
-          <span role="status" className="text-sm text-green-600">
+          <span role="status" className="text-sm text-emerald-600 dark:text-emerald-400">
             {state.message}
           </span>
         ) : null}

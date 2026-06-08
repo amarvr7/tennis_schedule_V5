@@ -5,10 +5,10 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Menu01Icon,
   Logout01Icon,
-  TennisBallIcon,
 } from "@hugeicons/core-free-icons";
 
 import { signOut } from "@/app/login/actions";
+import { AscenderHomeLink } from "@/components/brand/AscenderHomeLink";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -32,7 +32,8 @@ export const AdminTopBar = ({ coachName, coachTitle }: AdminTopBarProps) => {
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-border bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80 lg:px-8">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
+        <AscenderHomeLink className="lg:hidden" />
         <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
           <SheetTrigger asChild>
             <Button
@@ -46,10 +47,8 @@ export const AdminTopBar = ({ coachName, coachTitle }: AdminTopBarProps) => {
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
             <SheetHeader className="h-16 flex-row items-center gap-2 border-b border-border p-5">
-              <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <HugeiconsIcon icon={TennisBallIcon} size={18} strokeWidth={2} aria-hidden="true" />
-              </span>
-              <SheetTitle>Academy</SheetTitle>
+              <AscenderHomeLink />
+              <SheetTitle className="sr-only">IMG Academy Tennis</SheetTitle>
             </SheetHeader>
             <div className="p-3">
               <NavLinks onNavigate={handleCloseMobileNav} />

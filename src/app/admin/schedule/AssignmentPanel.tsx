@@ -225,13 +225,13 @@ export const AssignmentPanel = ({
                     className="flex w-full items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 text-left outline-none transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50"
                   >
                     <span className="flex items-center gap-2">
-                      <span className="inline-flex size-6 items-center justify-center rounded-full bg-emerald-100 text-[0.625rem] font-semibold text-emerald-700">
+                      <span className="inline-flex size-6 items-center justify-center rounded-full bg-emerald-100 text-[0.625rem] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                         {initialsFor(coach)}
                       </span>
                       <span className="flex flex-col">
                         <span className="text-xs font-medium text-foreground">{coach.fullName}</span>
                         {warnings.length > 0 ? (
-                          <span className="text-[0.625rem] text-amber-600">{warnings[0].message}</span>
+                          <span className="text-[0.625rem] text-amber-600 dark:text-amber-400">{warnings[0].message}</span>
                         ) : coach.title ? (
                           <span className="text-[0.625rem] text-muted-foreground">{coach.title}</span>
                         ) : null}
@@ -241,7 +241,7 @@ export const AssignmentPanel = ({
                       icon={CheckmarkCircle02Icon}
                       size={15}
                       strokeWidth={2}
-                      className="text-emerald-500"
+                      className="text-emerald-500 dark:text-emerald-400"
                       aria-hidden="true"
                     />
                   </button>

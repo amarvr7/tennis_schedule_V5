@@ -11,6 +11,7 @@ import {
   checkDoubleBooking,
   checkMiddayBlock,
   checkNoCamp,
+  checkNoDrive,
 } from "@/lib/conflicts";
 
 // -----------------------------------------------------------------------------
@@ -58,6 +59,7 @@ const buildCoach = (overrides: Partial<ConflictCoach> = {}): ConflictCoach => ({
   middayBlockEnd: null,
   noCamp: false,
   noBt: false,
+  noDrive: false,
   programRestriction: null,
   ...overrides,
 });
@@ -295,6 +297,17 @@ describe("Double booking rule", () => {
 // -----------------------------------------------------------------------------
 // Engine aggregation + clean baseline.
 // -----------------------------------------------------------------------------
+
+describe("No Drive rule", () => {
+  it("blocks a no-drive coach assigned as driver", () => {
+    const input = buildInput({
+      coach: buildCoach({ noDrive: true }),
+      assignment: buildAssignment({ role: "driver" }),
+    });
+    const conflict = checkNoDrive(input);
+    expect(conflict?.type).toBe("no_drive");
+  });
+});
 
 describe("checkAllConflicts", () => {
   it("returns no conflicts for a clean assignment", () => {

@@ -6,7 +6,7 @@ const AdminLayout = async ({ children }: { children: React.ReactNode }) => {
   const admin = await requireAdminCoach();
 
   return (
-    <div className="min-h-screen bg-muted/20">
+    <div className="min-h-screen bg-background">
       <AdminSidebar />
       <div className="flex min-h-screen flex-col lg:pl-60">
         <AdminTopBar coachName={admin.full_name} coachTitle={admin.title} />
