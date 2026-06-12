@@ -16,6 +16,8 @@ import { signOut } from "@/app/login/actions";
 import { AscenderHomeLink } from "@/components/brand/AscenderHomeLink";
 import { TennisWordmark } from "@/components/brand/TennisWordmark";
 import { getCurrentCoach } from "@/lib/auth/getCurrentCoach";
+import { isCampDirector } from "@/lib/auth/roles";
+import { loadWeekChangeLog } from "@/lib/schedule/changeLog";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -64,7 +66,7 @@ const dayDateLabel = (weekStartDate: string, dayKey: MySession["dayOfWeek"]): st
     timeZone: "UTC",
   });
 
-const SessionRow = ({ session }: { session: MySession }) => {
+const SessionRow = ({ session, changed }: { session: MySession; changed: boolean }) => {
   const tint = session.group ? GROUP_TINT[session.group as SessionType] : null;
 
   return (
@@ -73,10 +75,17 @@ const SessionRow = ({ session }: { session: MySession }) => {
         <p className="text-sm font-semibold leading-tight text-foreground">
           {session.sessionName}
         </p>
-        <Badge className={cn("shrink-0", tint ?? "bg-muted text-muted-foreground")}>
-          <HugeiconsIcon icon={UserGroupIcon} aria-hidden="true" />
-          {formatGroup(session.group)}
-        </Badge>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {changed ? (
+            <Badge className="bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300">
+              Changed
+            </Badge>
+          ) : null}
+          <Badge className={cn("shrink-0", tint ?? "bg-muted text-muted-foreground")}>
+            <HugeiconsIcon icon={UserGroupIcon} aria-hidden="true" />
+            {formatGroup(session.group)}
+          </Badge>
+        </div>
       </div>
 
       <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -103,10 +112,18 @@ const SchedulePage = async ({ searchParams }: { searchParams: SearchParams }) =>
   const supabase = createClient();
   const weekStartDate = normalizeWeekStart(searchParams.week);
 
-  const [{ rows, error }, availability] = await Promise.all([
+  const [{ rows, error }, availability, changeLog] = await Promise.all([
     loadMyAssignments(supabase, weekStartDate),
     loadMyAvailability(supabase, weekStartDate),
+    // RLS scopes this to changes affecting THIS coach (Q6 visibility).
+    loadWeekChangeLog(supabase, weekStartDate),
   ]);
+
+  const changedSessionIds = new Set(
+    changeLog
+      .map((entry) => entry.sessionId)
+      .filter((sessionId): sessionId is string => sessionId !== null),
+  );
 
   const week = buildMyWeek(rows);
   const total = countSessions(week);
@@ -160,6 +177,22 @@ const SchedulePage = async ({ searchParams }: { searchParams: SearchParams }) =>
           </div>
           <ImBackButton weekStartDate={weekStartDate} />
         </section>
+      ) : null}
+
+      {isCampDirector(coach) ? (
+        <Link
+          href={`/camp?week=${weekStartDate}`}
+          className="flex items-center justify-between gap-3 rounded-lg bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:bg-muted/40"
+          aria-label="Open the full camp weekly schedule"
+        >
+          <div className="flex flex-col gap-0.5">
+            <p className="text-sm font-semibold text-foreground">Camp Schedule</p>
+            <p className="text-xs text-muted-foreground">
+              View all camp sessions and any changes that touch camp this week.
+            </p>
+          </div>
+          <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="text-muted-foreground" aria-hidden="true" />
+        </Link>
       ) : null}
 
       <section className="flex flex-col gap-3 rounded-lg bg-card p-3 ring-1 ring-foreground/10 sm:flex-row sm:items-center sm:justify-between">
@@ -240,7 +273,11 @@ const SchedulePage = async ({ searchParams }: { searchParams: SearchParams }) =>
                 </div>
                 <ul className="flex flex-col gap-2">
                   {day.sessions.map((session) => (
-                    <SessionRow key={session.assignmentId} session={session} />
+                    <SessionRow
+                      key={session.assignmentId}
+                      session={session}
+                      changed={changedSessionIds.has(session.sessionId)}
+                    />
                   ))}
                 </ul>
               </section>

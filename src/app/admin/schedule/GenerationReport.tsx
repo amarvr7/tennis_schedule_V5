@@ -21,9 +21,9 @@ const dayLabel = (day: GenerationSummary["gaps"][number]["dayOfWeek"]): string =
   WEEKDAYS.find((weekday) => weekday.key === day)?.short ?? day;
 
 /**
- * The Schedule Architect's draft report — surfaced after generation for the
- * admin's one-click review before publishing. Shows how many open sessions were
- * staffed and lists every session the solver could not fill, with the reason.
+ * The roster-first draft report — surfaced after generation for the admin's
+ * review before publishing. Shows how many roster slots were placed and lists
+ * every slot that could not be filled (and the rostered coach it traces to).
  */
 export const GenerationReport = ({ summary, onDismiss }: GenerationReportProps) => {
   const fullyStaffed = summary.gapCount === 0;
@@ -41,9 +41,10 @@ export const GenerationReport = ({ summary, onDismiss }: GenerationReportProps) 
           <div className="flex flex-col gap-0.5">
             <p className="text-sm font-semibold text-foreground">Draft generated</p>
             <p className="text-xs text-muted-foreground">
-              Staffed {summary.staffedCount} of {summary.openSessionCount} open{" "}
-              {summary.openSessionCount === 1 ? "session" : "sessions"}. Review below, then
-              publish to approve.
+              Placed {summary.staffedCount} of {summary.openSlotCount} roster{" "}
+              {summary.openSlotCount === 1 ? "slot" : "slots"}. Review below, then publish
+              to approve. Unfilled slots can be covered via Find coach on the coverage
+              report.
             </p>
           </div>
         </div>
@@ -61,7 +62,7 @@ export const GenerationReport = ({ summary, onDismiss }: GenerationReportProps) 
         {fullyStaffed ? (
           <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
             <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} aria-hidden="true" />
-            All open sessions staffed
+            Every roster slot placed
           </Badge>
         ) : (
           <Badge variant="destructive">
@@ -77,9 +78,9 @@ export const GenerationReport = ({ summary, onDismiss }: GenerationReportProps) 
 
       {summary.gaps.length > 0 ? (
         <ul className="flex flex-col gap-1.5">
-          {summary.gaps.map((gap) => (
+          {summary.gaps.map((gap, index) => (
             <li
-              key={gap.sessionId}
+              key={`${gap.sessionId}-${gap.role}-${gap.coachId ?? index}`}
               className="flex flex-col gap-0.5 rounded-md bg-destructive/5 p-2.5"
             >
               <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
@@ -91,24 +92,19 @@ export const GenerationReport = ({ summary, onDismiss }: GenerationReportProps) 
                   aria-hidden="true"
                 />
                 {gap.programName}
+                <span className="font-normal capitalize text-muted-foreground">· {gap.role}</span>
                 <span className="font-normal text-muted-foreground">
                   · {dayLabel(gap.dayOfWeek)} {formatTime(gap.startTime)}–{formatTime(gap.endTime)}{" "}
                   · {gap.courtLabel}
                 </span>
               </span>
               <span className="pl-[1.125rem] text-[0.6875rem] leading-snug text-destructive/90">
+                {gap.coachName ? `${gap.coachName}: ` : ""}
                 {gap.reason}
               </span>
             </li>
           ))}
         </ul>
-      ) : null}
-
-      {summary.hitNodeLimit ? (
-        <p className="text-[0.6875rem] text-muted-foreground">
-          Search budget reached — this is a best-effort draft. You can fine-tune any session by
-          hand.
-        </p>
       ) : null}
     </section>
   );

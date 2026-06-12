@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { AssignmentContext, AvailabilityRecord } from "@/lib/conflicts";
 import type { GridCoach, GridSession } from "./model";
 import { toSessionContext } from "./model";
+import type { GroupRequirement, GroupRoster, RosterMember } from "./roster";
 import { generateSchedule } from "./generate";
 
 const WEEK = "2025-06-02"; // a Monday inside the summer season
@@ -19,6 +20,7 @@ const buildSession = (overrides: Partial<GridSession> = {}): GridSession => ({
   courtZone: "Zone C",
   courtLabel: "Hard 15-18",
   courtNumbers: ["Hard 15", "Hard 16", "Hard 17", "Hard 18"],
+  headcount: null,
   ...overrides,
 });
 
@@ -42,172 +44,198 @@ const buildCoach = (overrides: Partial<GridCoach> = {}): GridCoach => ({
   ...overrides,
 });
 
+const member = (
+  programId: string,
+  coachId: string,
+  role: RosterMember["role"],
+): RosterMember => ({
+  id: `roster:${programId}:${coachId}`,
+  programId,
+  coachId,
+  role,
+});
+
+const roster = (leads: RosterMember[], assistants: RosterMember[] = []): GroupRoster => ({
+  leads,
+  assistants,
+});
+
+const requirement = (
+  programId: string,
+  leads: number,
+  assistants: number,
+): GroupRequirement => ({
+  programId,
+  programName: "Group",
+  programType: "competitive",
+  requiredLeadCount: leads,
+  requiredAssistantCount: assistants,
+  baseCapacity: null,
+});
+
 const activeContext = (
   coachId: string,
   session: GridSession,
+  role: "lead" | "assistant" = "lead",
 ): AssignmentContext => ({
   id: `existing:${coachId}:${session.id}`,
   coachId,
   sessionId: session.id,
   weekStartDate: WEEK,
-  role: "lead",
+  role,
   status: "active",
   session: toSessionContext(session),
 });
 
-describe("generateSchedule", () => {
-  it("staffs an open session with an available coach", () => {
+describe("generateSchedule (roster-first, CURSOR_ANSWERS Q1/Q5)", () => {
+  it("places the group's rostered lead and assistants into the group's session", () => {
     const session = buildSession();
-    const coach = buildCoach();
+    const lead = buildCoach({ id: "lead", fullName: "Lena Lead" });
+    const assistant = buildCoach({ id: "asst", fullName: "Andy Assistant" });
 
     const result = generateSchedule({
       weekStartDate: WEEK,
       sessions: [session],
-      coaches: [coach],
+      coaches: [lead, assistant],
       availability: [],
+      rosterByProgram: new Map([
+        ["program-1", roster([member("program-1", "lead", "lead")], [member("program-1", "asst", "assistant")])],
+      ]),
+      requirementByProgram: new Map([["program-1", requirement("program-1", 1, 1)]]),
     });
 
-    expect(result.openSessionCount).toBe(1);
-    expect(result.staffedCount).toBe(1);
-    expect(result.gaps).toHaveLength(0);
-    expect(result.planned[0]).toMatchObject({
-      sessionId: session.id,
-      coachId: coach.id,
-      role: "lead",
-      reason: "available",
-    });
-  });
-
-  it("prefers the program's head coach over a generic available coach", () => {
-    const session = buildSession();
-    const headCoach = buildCoach({ id: "head", fullName: "Zoe Head" });
-    const filler = buildCoach({ id: "filler", fullName: "Aaron Filler" });
-
-    const result = generateSchedule({
-      weekStartDate: WEEK,
-      sessions: [session],
-      coaches: [filler, headCoach],
-      availability: [],
-      headCoachByProgram: new Map([[session.programId!, headCoach.id]]),
-    });
-
-    expect(result.planned[0].coachId).toBe(headCoach.id);
-    expect(result.planned[0].reason).toBe("head_coach");
-  });
-
-  it("prefers a coach's primary program over an unrelated session", () => {
-    const session = buildSession();
-    const homeCoach = buildCoach({ id: "home", fullName: "Zed Home" });
-    const filler = buildCoach({ id: "filler", fullName: "Aaron Filler" });
-
-    const result = generateSchedule({
-      weekStartDate: WEEK,
-      sessions: [session],
-      coaches: [filler, homeCoach],
-      availability: [],
-      primaryProgramByCoach: new Map([[homeCoach.id, session.programId!]]),
-    });
-
-    expect(result.planned[0].coachId).toBe(homeCoach.id);
-    expect(result.planned[0].reason).toBe("primary_program");
-  });
-
-  it("never double-books a coach across overlapping sessions", () => {
-    const morningA = buildSession({ id: "a", programName: "Comp Girls 1" });
-    const morningB = buildSession({
-      id: "b",
-      programName: "Comp Boys 1",
-      courtLabel: "Hard 8-11",
-      courtNumbers: ["Hard 8", "Hard 9", "Hard 10", "Hard 11"],
-    });
-    const onlyCoach = buildCoach({ id: "solo" });
-
-    const result = generateSchedule({
-      weekStartDate: WEEK,
-      sessions: [morningA, morningB],
-      coaches: [onlyCoach],
-      availability: [],
-    });
-
-    expect(result.staffedCount).toBe(1);
-    expect(result.gaps).toHaveLength(1);
-    expect(result.gaps[0].reason).toContain("already booked");
-  });
-
-  it("maximizes coverage when a greedy preference would strand a session", () => {
-    // Two overlapping sessions. A is open to both coaches; B is a camp session
-    // that coachOnlyA (No Camp) cannot take. Preference would greedily put the
-    // shared coach on A (their home program), stranding B — the solver must
-    // instead give A to coachOnlyA and B to coachShared to staff both.
-    const sessionA = buildSession({ id: "a", programId: "pa", programName: "A" });
-    const sessionB = buildSession({
-      id: "b",
-      programId: "pb",
-      programName: "Junior Camp",
-      type: "camp",
-      courtLabel: "Hard 8-11",
-      courtNumbers: ["Hard 8", "Hard 9"],
-    });
-    const coachShared = buildCoach({ id: "shared", fullName: "Shared Coach" });
-    const coachOnlyA = buildCoach({ id: "onlyA", fullName: "Only A", noCamp: true });
-
-    const result = generateSchedule({
-      weekStartDate: WEEK,
-      sessions: [sessionA, sessionB],
-      coaches: [coachShared, coachOnlyA],
-      availability: [],
-      // coachShared is the home/head coach of A, so preference pulls them to A.
-      headCoachByProgram: new Map([["pa", coachShared.id]]),
-    });
-
+    expect(result.openSlotCount).toBe(2);
     expect(result.staffedCount).toBe(2);
     expect(result.gaps).toHaveLength(0);
-    const bySession = new Map(result.planned.map((p) => [p.sessionId, p.coachId]));
-    expect(bySession.get("a")).toBe(coachOnlyA.id);
-    expect(bySession.get("b")).toBe(coachShared.id);
+    expect(result.planned).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ coachId: "lead", role: "lead" }),
+        expect.objectContaining({ coachId: "asst", role: "assistant" }),
+      ]),
+    );
   });
 
-  it("reports a gap with a hard-rule reason when no coach is eligible", () => {
+  it("never pulls from the general pool — an absent roster coach becomes a gap", () => {
     const session = buildSession();
-    const ptoCoach = buildCoach({ id: "pto" });
+    const lead = buildCoach({ id: "lead", fullName: "Lena Lead" });
+    const outsider = buildCoach({ id: "outsider", fullName: "Otto Outsider" });
     const availability: AvailabilityRecord[] = [
-      { coachId: ptoCoach.id, weekStartDate: WEEK, dayOfWeek: "monday", status: "pto" },
+      { coachId: "lead", weekStartDate: WEEK, dayOfWeek: "monday", status: "pto" },
     ];
 
     const result = generateSchedule({
       weekStartDate: WEEK,
       sessions: [session],
-      coaches: [ptoCoach],
+      coaches: [lead, outsider],
       availability,
+      rosterByProgram: new Map([
+        ["program-1", roster([member("program-1", "lead", "lead")])],
+      ]),
+      requirementByProgram: new Map([["program-1", requirement("program-1", 1, 0)]]),
     });
 
     expect(result.staffedCount).toBe(0);
     expect(result.gaps).toHaveLength(1);
-    expect(result.gaps[0].reason).toContain("hard rules");
+    expect(result.gaps[0]).toMatchObject({ coachId: "lead", role: "lead" });
+    // The outsider must never be auto-assigned (Q4: suggestions only).
+    expect(result.planned).toHaveLength(0);
   });
 
-  it("leaves already-staffed sessions untouched and respects their time", () => {
-    const morning = buildSession({ id: "m" });
-    const overlapping = buildSession({
-      id: "o",
-      programName: "Overlap",
+  it("flags (never silently double-books) a coach rostered as lead on two simultaneous groups", () => {
+    const sessionA = buildSession({ id: "a", programId: "pa", programName: "A Group" });
+    const sessionB = buildSession({
+      id: "b",
+      programId: "pb",
+      programName: "B Group",
       courtLabel: "Hard 8-11",
-      courtNumbers: ["Hard 8"],
+      courtNumbers: ["Hard 8", "Hard 9"],
     });
-    const coach = buildCoach({ id: "busy" });
+    const sharedLead = buildCoach({ id: "shared", fullName: "Shared Lead" });
 
     const result = generateSchedule({
       weekStartDate: WEEK,
-      sessions: [morning, overlapping],
-      coaches: [coach],
+      sessions: [sessionA, sessionB],
+      coaches: [sharedLead],
       availability: [],
-      // Coach already leads `morning`; only `overlapping` is open and it
-      // overlaps in time, so the coach cannot also take it.
-      existingAssignments: [activeContext(coach.id, morning)],
+      rosterByProgram: new Map([
+        ["pa", roster([member("pa", "shared", "lead")])],
+        ["pb", roster([member("pb", "shared", "lead")])],
+      ]),
+      requirementByProgram: new Map([
+        ["pa", requirement("pa", 1, 0)],
+        ["pb", requirement("pb", 1, 0)],
+      ]),
     });
 
-    expect(result.openSessionCount).toBe(1);
+    expect(result.staffedCount).toBe(1);
+    expect(result.gaps).toHaveLength(1);
+    expect(result.gaps[0].coachId).toBe("shared");
+    expect(result.gaps[0].reason).toContain("Double-booked");
+  });
+
+  it("reports a setup gap when the requirement exceeds the roster", () => {
+    const session = buildSession();
+    const lead = buildCoach({ id: "lead" });
+
+    const result = generateSchedule({
+      weekStartDate: WEEK,
+      sessions: [session],
+      coaches: [lead],
+      availability: [],
+      rosterByProgram: new Map([
+        ["program-1", roster([member("program-1", "lead", "lead")])],
+      ]),
+      requirementByProgram: new Map([["program-1", requirement("program-1", 1, 2)]]),
+    });
+
+    expect(result.staffedCount).toBe(1);
+    expect(result.gaps).toHaveLength(2);
+    expect(result.gaps.every((gap) => gap.reason.includes("Season Setup"))).toBe(true);
+  });
+
+  it("counts existing active assignments toward the requirement and never duplicates", () => {
+    const session = buildSession();
+    const lead = buildCoach({ id: "lead" });
+
+    const result = generateSchedule({
+      weekStartDate: WEEK,
+      sessions: [session],
+      coaches: [lead],
+      availability: [],
+      existingAssignments: [activeContext("lead", session, "lead")],
+      rosterByProgram: new Map([
+        ["program-1", roster([member("program-1", "lead", "lead")])],
+      ]),
+      requirementByProgram: new Map([["program-1", requirement("program-1", 1, 0)]]),
+    });
+
+    expect(result.openSlotCount).toBe(0);
+    expect(result.planned).toHaveLength(0);
+    expect(result.gaps).toHaveLength(0);
+  });
+
+  it("surfaces the engine's rule reason when a roster coach is blocked (e.g. No Camp)", () => {
+    const campSession = buildSession({
+      id: "camp",
+      programId: "camp-program",
+      programName: "Junior Camp AM",
+      type: "camp",
+    });
+    const noCampCoach = buildCoach({ id: "nc", fullName: "Nora NoCamp", noCamp: true });
+
+    const result = generateSchedule({
+      weekStartDate: WEEK,
+      sessions: [campSession],
+      coaches: [noCampCoach],
+      availability: [],
+      rosterByProgram: new Map([
+        ["camp-program", roster([member("camp-program", "nc", "lead")])],
+      ]),
+      requirementByProgram: new Map([["camp-program", requirement("camp-program", 1, 0)]]),
+    });
+
     expect(result.staffedCount).toBe(0);
-    expect(result.gaps[0].sessionId).toBe("o");
+    expect(result.gaps).toHaveLength(1);
+    expect(result.gaps[0].coachId).toBe("nc");
   });
 });

@@ -5,7 +5,7 @@ import { getCoachView, VIEW_HOME, type CoachRole } from "@/lib/auth/roles";
 import { getPublicSupabaseEnv } from "./env";
 
 /** Routes reachable without an authenticated session. */
-const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth"];
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth", "/availability"];
 
 const isPublicPath = (pathname: string): boolean =>
   PUBLIC_PATHS.some(

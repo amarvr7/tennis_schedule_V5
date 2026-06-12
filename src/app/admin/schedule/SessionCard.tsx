@@ -4,18 +4,25 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Alert02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 
 import { cn } from "@/lib/utils";
-import type { Conflict, SessionType } from "@/lib/conflicts";
+import type { AssignmentRole, Conflict, SessionType } from "@/lib/conflicts";
 import type { GridCoach, GridSession } from "@/lib/schedule/model";
 
 export type AssignedCoach = {
   assignmentId: string;
   coach: GridCoach | undefined;
+  role: AssignmentRole | null;
+  /** Substitute fill (non-roster coach) — rendered amber (CURSOR_ANSWERS Q1). */
+  sub: boolean;
 };
 
 type SessionCardProps = {
   session: GridSession;
   assigned: AssignedCoach[];
+  /** Required leads + assistants for the group (Q1 staffing requirement). */
+  requiredCount: number;
   blockingConflicts: number;
+  /** The session was modified after publish this week (Q6 visibility). */
+  isChanged: boolean;
   isSelected: boolean;
   onSelect: () => void;
 };
@@ -47,12 +54,15 @@ const initialsFor = (coach: GridCoach | undefined): string =>
 export const SessionCard = ({
   session,
   assigned,
+  requiredCount,
   blockingConflicts,
+  isChanged,
   isSelected,
   onSelect,
 }: SessionCardProps) => {
   const accent = session.type ? TYPE_ACCENT[session.type] : "border-l-muted-foreground/40";
   const hasConflict = blockingConflicts > 0;
+  const fullyStaffed = assigned.length >= requiredCount;
 
   return (
     <button
@@ -82,20 +92,52 @@ export const SessionCard = ({
         <span className="text-xs font-semibold leading-tight text-foreground">
           {session.programName}
         </span>
+        {isChanged ? (
+          <span
+            className="inline-flex shrink-0 items-center rounded-full bg-sky-100 px-1.5 py-0.5 text-[0.5625rem] font-semibold uppercase tracking-wide text-sky-700 dark:bg-sky-950/60 dark:text-sky-300"
+            aria-label="This session was changed after publish"
+          >
+            Changed
+          </span>
+        ) : null}
       </span>
 
-      <span className="text-[0.625rem] font-medium text-muted-foreground">
-        {session.courtLabel}
+      <span className="flex items-center justify-between gap-1">
+        <span className="text-[0.625rem] font-medium text-muted-foreground">
+          {session.courtLabel}
+          {session.type === "adults" && session.headcount !== null ? (
+            <span aria-label={`${session.headcount} adults enrolled`}>
+              {" "}
+              · {session.headcount} adults
+            </span>
+          ) : null}
+        </span>
+        <span
+          className={cn(
+            "text-[0.625rem] font-semibold",
+            fullyStaffed ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400",
+          )}
+          aria-label={`${assigned.length} of ${requiredCount} coaches assigned`}
+        >
+          {assigned.length}/{requiredCount}
+        </span>
       </span>
 
       {assigned.length > 0 ? (
         <span className="flex flex-wrap gap-1">
-          {assigned.map(({ assignmentId, coach }) => (
+          {assigned.map(({ assignmentId, coach, sub }) => (
             <span
               key={assignmentId}
-              className="inline-flex items-center rounded-full bg-foreground/5 px-1.5 py-0.5 text-[0.625rem] font-semibold text-foreground"
+              className={cn(
+                "inline-flex items-center rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold",
+                sub
+                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                  : "bg-foreground/5 text-foreground",
+              )}
+              title={sub ? `${coach?.fullName ?? "Coach"} (substitute)` : coach?.fullName}
             >
               {initialsFor(coach)}
+              {sub ? <span aria-hidden="true">*</span> : null}
             </span>
           ))}
         </span>

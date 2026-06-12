@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 
@@ -22,7 +23,9 @@ import {
   type CoachRuleHistory,
 } from "@/lib/coaches/rules";
 import { createClient } from "@/lib/supabase/server";
+import { CoachContactForm } from "./CoachContactForm";
 import { CoachRulesForm } from "./CoachRulesForm";
+import { OnboardedBanner } from "./OnboardedBanner";
 
 const SEASON_LABELS: Record<string, string> = {
   year_round: "Year-round",
@@ -31,7 +34,7 @@ const SEASON_LABELS: Record<string, string> = {
 };
 
 const COACH_COLUMNS =
-  "id, full_name, initials, title, season, season_start, season_end, earliest_start, latest_end, midday_block_start, midday_block_end, no_camp, no_bt, no_drive, travel_restricted, program_restriction, is_admin, is_active, onboarding_status, created_at";
+  "id, full_name, initials, title, season, season_start, season_end, earliest_start, latest_end, midday_block_start, midday_block_end, no_camp, no_bt, no_drive, travel_restricted, program_restriction, is_admin, is_active, onboarding_status, email, phone, preferred_channel, created_at";
 
 const formatDate = (value: string | null): string =>
   value
@@ -70,6 +73,10 @@ const CoachDetailPage = async ({ params }: { params: { id: string } }) => {
         All coaches
       </Link>
 
+      <Suspense fallback={null}>
+        <OnboardedBanner />
+      </Suspense>
+
       <Card>
         <CardContent className="flex flex-col gap-4 pt-0 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
@@ -96,6 +103,13 @@ const CoachDetailPage = async ({ params }: { params: { id: string } }) => {
           />
         </CardContent>
       </Card>
+
+      <CoachContactForm
+        coachId={coach.id}
+        initialEmail={coach.email ?? null}
+        initialPhone={coach.phone ?? null}
+        initialChannel={coach.preferred_channel === "sms" ? "sms" : "email"}
+      />
 
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold text-foreground">Edit rules</h2>

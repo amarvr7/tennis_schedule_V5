@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { Add01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 
 import { CoachAvatar } from "@/components/coaches/CoachAvatar";
 import { RuleFlagBadges } from "@/components/coaches/RuleFlagBadges";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -35,11 +36,19 @@ const CoachesPage = async () => {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold text-foreground">Coaches</h1>
-        <p className="text-sm text-muted-foreground">
-          {coaches.length} {coaches.length === 1 ? "coach" : "coaches"} · view the roster and edit each coach&apos;s rules.
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl font-semibold text-foreground">Coaches</h1>
+          <p className="text-sm text-muted-foreground">
+            {coaches.length} {coaches.length === 1 ? "coach" : "coaches"} · view the roster and edit each coach&apos;s rules.
+          </p>
+        </div>
+        <Button asChild size="sm">
+          <Link href="/admin/coaches/new" aria-label="Add a new coach">
+            <HugeiconsIcon icon={Add01Icon} size={14} strokeWidth={2} aria-hidden="true" />
+            Add coach
+          </Link>
+        </Button>
       </header>
 
       {error ? (

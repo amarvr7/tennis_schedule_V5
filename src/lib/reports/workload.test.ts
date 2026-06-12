@@ -9,6 +9,7 @@ const row = (overrides: Partial<RawWorkloadAssignment> = {}): RawWorkloadAssignm
   coachId: "coach-1",
   coachName: "Aaron Coach",
   coachTitle: "Head Coach",
+  contractedWeeklyHours: null,
   durationMinutes: 120,
   programType: "competitive",
   weekStartDate: "2025-06-02",

@@ -24,7 +24,7 @@ type AssignmentRow = {
   duration_minutes: number | null;
   status: string;
   is_published: boolean;
-  coaches: { full_name: string; title: string | null } | null;
+  coaches: { full_name: string; title: string | null; contracted_weekly_hours: number | null } | null;
   sessions: {
     program_id: string | null;
     court_zone: string | null;
@@ -38,6 +38,7 @@ type SessionRow = {
   court_zone: string | null;
   court_numbers: string | null;
   duration_minutes: number | null;
+  week_start_date: string | null;
 };
 
 const courtLabel = (zone: string | null, numbers: string | null): string | null => {
@@ -59,7 +60,7 @@ export const loadWorkloadRows = async (
       duration_minutes,
       status,
       is_published,
-      coaches ( full_name, title ),
+      coaches!weekly_assignments_coach_id_fkey ( full_name, title, contracted_weekly_hours ),
       sessions (
         program_id,
         court_zone,
@@ -85,6 +86,7 @@ export const loadWorkloadRows = async (
       coachId: row.coach_id,
       coachName: coach?.full_name ?? "Unknown",
       coachTitle: coach?.title ?? null,
+      contractedWeeklyHours: coach?.contracted_weekly_hours ?? null,
       durationMinutes: row.duration_minutes ?? 0,
       programType: programType ?? null,
       weekStartDate: row.week_start_date,
@@ -101,7 +103,8 @@ export const loadSessionCoverage = async (
 ): Promise<{ coverage: RawCoverageSession[]; courts: RawCourtSession[] }> => {
   const { data: sessions, error: sessionsError } = await supabase
     .from("sessions")
-    .select("id, court_zone, court_numbers, duration_minutes");
+    .select("id, court_zone, court_numbers, duration_minutes, week_start_date")
+    .eq("is_active", true);
 
   if (sessionsError) throw new Error(`Could not load sessions: ${sessionsError.message}`);
 
@@ -113,6 +116,17 @@ export const loadSessionCoverage = async (
     .eq("status", "active");
 
   if (assignError) throw new Error(`Could not load assignments: ${assignError.message}`);
+
+  // Weeks that were created from the master template own their session copies;
+  // legacy template rows should not be counted for those weeks.
+  const { data: createdWeeks } = await supabase
+    .from("schedule_weeks")
+    .select("week_start_date")
+    .gte("week_start_date", period.startDate)
+    .lte("week_start_date", period.endDate);
+  const weeksWithOwnSessions = new Set(
+    (createdWeeks ?? []).map((row) => row.week_start_date as string),
+  );
 
   const staffed = new Set<string>();
   const published = new Set<string>();
@@ -129,6 +143,10 @@ export const loadSessionCoverage = async (
 
   for (const session of (sessions ?? []) as SessionRow[]) {
     for (const week of weekStarts) {
+      // Week-cloned sessions exist only in their own week; legacy template
+      // rows (no week) recur only across weeks NOT created from the template.
+      if (session.week_start_date && session.week_start_date !== week) continue;
+      if (!session.week_start_date && weeksWithOwnSessions.has(week)) continue;
       const key = `${session.id}::${week}`;
       const hasActive = staffed.has(key);
       const isPublished = published.has(key);

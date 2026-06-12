@@ -42,6 +42,7 @@ export interface RawSession {
   court_numbers: string | null;
   surface: string | null;
   notes: string | null;
+  headcount: number | null;
   programs: RawProgram | null;
 }
 
@@ -73,6 +74,8 @@ export interface RawAssignment {
   role: string | null;
   status: string;
   is_published: boolean;
+  sub?: boolean | null;
+  subbing_for_coach_id?: string | null;
 }
 
 export interface RawAvailability {
@@ -104,6 +107,12 @@ export interface GridSession {
   courtZone: string | null;
   courtLabel: string; // original range string, e.g. "Hard 15-18"
   courtNumbers: string[]; // expanded individual courts for double-booking checks
+  /**
+   * Enrollment for this specific session. Adults numbers differ per day and
+   * AM/PM track, so the count lives on the session, not the week. Drives the
+   * adults staffing warning (warn-only); null when not entered.
+   */
+  headcount: number | null;
 }
 
 export interface GridCoach extends ConflictCoach {
@@ -120,6 +129,9 @@ export interface GridAssignment {
   status: string;
   isPublished: boolean;
   weekStartDate: string;
+  /** Non-roster fill recorded as a substitute (CURSOR_ANSWERS.md Q1). */
+  sub: boolean;
+  subbingForCoachId: string | null;
 }
 
 // -----------------------------------------------------------------------------
@@ -256,6 +268,7 @@ export const toGridSession = (
     courtZone: row.court_zone,
     courtLabel: row.court_numbers ?? row.court_zone ?? "—",
     courtNumbers: parseCourts(row.court_numbers),
+    headcount: row.headcount ?? null,
   };
 };
 
@@ -286,6 +299,8 @@ export const toGridAssignment = (row: RawAssignment): GridAssignment => ({
   status: row.status,
   isPublished: row.is_published,
   weekStartDate: row.week_start_date,
+  sub: row.sub ?? false,
+  subbingForCoachId: row.subbing_for_coach_id ?? null,
 });
 
 export const toAvailabilityRecord = (row: RawAvailability): AvailabilityRecord | null => {

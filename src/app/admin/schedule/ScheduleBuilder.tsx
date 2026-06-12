@@ -8,7 +8,9 @@ import {
   AiMagicIcon,
   ArrowLeft01Icon,
   ArrowRight01Icon,
+  Calendar03Icon,
   CheckmarkBadge02Icon,
+  ChartHistogramIcon,
   SentIcon,
 } from "@hugeicons/core-free-icons";
 
@@ -17,6 +19,14 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AvailabilityRecord } from "@/lib/conflicts";
 import type { GridAssignment, GridCoach, GridSession } from "@/lib/schedule/model";
+import type { ScheduleWeek } from "@/lib/schedule/load";
+import {
+  buildRosterByProgram,
+  buildRequirementByProgram,
+  type GroupRequirement,
+  type RosterMember,
+  type RosterRole,
+} from "@/lib/schedule/roster";
 import {
   WEEKDAYS,
   buildTimeSlots,
@@ -33,9 +43,12 @@ import {
 } from "@/lib/schedule/conflicts";
 import {
   assignCoach,
+  createWeekFromTemplate,
   generateDraft,
   publishWeek,
   unassignCoach,
+  updateCampHeadcount,
+  updateSessionHeadcount,
   type GenerationSummary,
 } from "./actions";
 import { AssignmentPanel } from "./AssignmentPanel";
@@ -44,10 +57,17 @@ import { SessionCard, type AssignedCoach } from "./SessionCard";
 
 type ScheduleBuilderProps = {
   weekStartDate: string;
+  scheduleWeek: ScheduleWeek | null;
+  templateSlotCount: number;
   sessions: GridSession[];
   coaches: GridCoach[];
   initialAssignments: GridAssignment[];
   availability: AvailabilityRecord[];
+  rosterMembers: RosterMember[];
+  requirements: GroupRequirement[];
+  /** Configured adults staffing ratio (1 coach per N adults). */
+  adultsPerCoach: number;
+  changedSessionIds: string[];
   loadError: string | null;
 };
 
@@ -62,10 +82,16 @@ const PUBLISH_BADGE: Record<PublishState, { label: string; variant: "secondary" 
 
 export const ScheduleBuilder = ({
   weekStartDate,
+  scheduleWeek,
+  templateSlotCount,
   sessions,
   coaches,
   initialAssignments,
   availability,
+  rosterMembers,
+  requirements,
+  adultsPerCoach,
+  changedSessionIds,
   loadError,
 }: ScheduleBuilderProps) => {
   const router = useRouter();
@@ -74,12 +100,19 @@ export const ScheduleBuilder = ({
   const [actionError, setActionError] = useState<string | null>(null);
   const [publishNotice, setPublishNotice] = useState<string | null>(null);
   const [generationSummary, setGenerationSummary] = useState<GenerationSummary | null>(null);
+  const [campHeadcountInput, setCampHeadcountInput] = useState<string>(
+    scheduleWeek?.campHeadcount?.toString() ?? "",
+  );
   const [isPending, startTransition] = useTransition();
 
   // Re-sync with canonical server data after each router.refresh().
   useEffect(() => {
     setAssignments(initialAssignments);
   }, [initialAssignments]);
+
+  useEffect(() => {
+    setCampHeadcountInput(scheduleWeek?.campHeadcount?.toString() ?? "");
+  }, [scheduleWeek?.campHeadcount]);
 
   const sessionsById = useMemo(
     () => new Map(sessions.map((session) => [session.id, session])),
@@ -90,6 +123,13 @@ export const ScheduleBuilder = ({
     [coaches],
   );
   const timeSlots = useMemo(() => buildTimeSlots(sessions), [sessions]);
+
+  const rosterByProgram = useMemo(() => buildRosterByProgram(rosterMembers), [rosterMembers]);
+  const requirementByProgram = useMemo(
+    () => buildRequirementByProgram(requirements),
+    [requirements],
+  );
+  const changedSessions = useMemo(() => new Set(changedSessionIds), [changedSessionIds]);
 
   const activeAssignments = useMemo(
     () => assignments.filter((assignment) => assignment.status === "active"),
@@ -134,6 +174,9 @@ export const ScheduleBuilder = ({
   }, [activeAssignments]);
 
   const hasUnpublished = activeAssignments.some((assignment) => !assignment.isPublished);
+  const isLiveWeek =
+    scheduleWeek?.status === "published" ||
+    activeAssignments.some((assignment) => assignment.isPublished);
 
   const selectedSession = selectedSessionId ? sessionsById.get(selectedSessionId) ?? null : null;
 
@@ -142,6 +185,8 @@ export const ScheduleBuilder = ({
     return (assignmentsBySession.get(selectedSession.id) ?? []).map((assignment) => ({
       assignmentId: assignment.id,
       coach: coachesById.get(assignment.coachId),
+      role: assignment.role,
+      sub: assignment.sub,
     }));
   }, [selectedSession, assignmentsBySession, coachesById]);
 
@@ -149,7 +194,7 @@ export const ScheduleBuilder = ({
     ? conflictsBySession.get(selectedSession.id) ?? []
     : [];
 
-  const handleAssign = (coachId: string) => {
+  const handleAssign = (coachId: string, role: RosterRole, sub: boolean) => {
     if (!selectedSession) return;
     setActionError(null);
     setPublishNotice(null);
@@ -158,10 +203,12 @@ export const ScheduleBuilder = ({
       id: `optimistic:${coachId}:${selectedSession.id}`,
       sessionId: selectedSession.id,
       coachId,
-      role: "lead",
+      role,
       status: "active",
-      isPublished: false,
+      isPublished: isLiveWeek,
       weekStartDate,
+      sub,
+      subbingForCoachId: null,
     };
     setAssignments((previous) => [
       ...previous.filter(
@@ -175,7 +222,8 @@ export const ScheduleBuilder = ({
         sessionId: optimistic.sessionId,
         coachId,
         weekStartDate,
-        role: "lead",
+        role,
+        sub,
       });
       if (!result.ok && result.error) setActionError(result.error);
       router.refresh();
@@ -232,6 +280,39 @@ export const ScheduleBuilder = ({
     });
   };
 
+  const handleCreateWeek = () => {
+    setActionError(null);
+    startTransition(async () => {
+      const result = await createWeekFromTemplate(weekStartDate);
+      if (!result.ok && result.error) setActionError(result.error);
+      router.refresh();
+    });
+  };
+
+  const handleSaveCampHeadcount = () => {
+    setActionError(null);
+    const trimmed = campHeadcountInput.trim();
+    const parsed = trimmed === "" ? null : Number(trimmed);
+    if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0)) {
+      setActionError("Camp head count must be a non-negative number.");
+      return;
+    }
+    startTransition(async () => {
+      const result = await updateCampHeadcount(weekStartDate, parsed);
+      if (!result.ok && result.error) setActionError(result.error);
+      router.refresh();
+    });
+  };
+
+  const handleSaveSessionHeadcount = (sessionId: string, headcount: number | null) => {
+    setActionError(null);
+    startTransition(async () => {
+      const result = await updateSessionHeadcount(sessionId, headcount);
+      if (!result.ok && result.error) setActionError(result.error);
+      router.refresh();
+    });
+  };
+
   const badge = PUBLISH_BADGE[publishState];
 
   return (
@@ -269,13 +350,20 @@ export const ScheduleBuilder = ({
             </Button>
           </div>
 
+          <Button asChild variant="outline" size="lg">
+            <Link href={`/admin/schedule/coverage?week=${weekStartDate}`}>
+              <HugeiconsIcon icon={ChartHistogramIcon} strokeWidth={2} aria-hidden="true" />
+              Coverage
+            </Link>
+          </Button>
+
           <Button
             type="button"
             variant="outline"
             size="lg"
             onClick={handleGenerate}
-            disabled={isPending}
-            aria-label="Generate a draft schedule for this week"
+            disabled={isPending || sessions.length === 0}
+            aria-label="Generate a draft schedule for this week from the season rosters"
           >
             <HugeiconsIcon icon={AiMagicIcon} strokeWidth={2} aria-hidden="true" />
             {isPending ? "Generating…" : "Generate draft"}
@@ -297,6 +385,64 @@ export const ScheduleBuilder = ({
           </Button>
         </div>
       </header>
+
+      {scheduleWeek === null ? (
+        <section className="flex flex-col items-start justify-between gap-3 rounded-lg bg-primary/5 p-4 ring-1 ring-primary/20 sm:flex-row sm:items-center">
+          <div className="flex items-start gap-2.5">
+            <span className="mt-0.5 text-primary">
+              <HugeiconsIcon icon={Calendar03Icon} aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                This week hasn&rsquo;t been created yet
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {templateSlotCount > 0
+                  ? `Clone the master week template (${templateSlotCount} slots) into this week. You can then edit this week's copy without touching the master.`
+                  : "The master week template is empty — add slots in Week Template first."}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            onClick={handleCreateWeek}
+            disabled={isPending || templateSlotCount === 0}
+          >
+            {isPending ? "Creating…" : "Create week from template"}
+          </Button>
+        </section>
+      ) : (
+        <section className="flex flex-wrap items-center gap-2 rounded-lg bg-card p-3 ring-1 ring-foreground/10">
+          <label
+            htmlFor="camp-headcount"
+            className="text-xs font-medium text-muted-foreground"
+          >
+            Camp head count this week
+          </label>
+          <input
+            id="camp-headcount"
+            type="number"
+            min={0}
+            inputMode="numeric"
+            value={campHeadcountInput}
+            onChange={(event) => setCampHeadcountInput(event.target.value)}
+            placeholder="—"
+            className="h-8 w-24 rounded-md border border-border bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleSaveCampHeadcount}
+            disabled={isPending}
+          >
+            Save
+          </Button>
+          <span className="text-[0.6875rem] text-muted-foreground">
+            Used for the camp overflow warning on the coverage report.
+          </span>
+        </section>
+      )}
 
       {loadError ? (
         <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
@@ -324,7 +470,10 @@ export const ScheduleBuilder = ({
         <div className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-card p-1 ring-1 ring-foreground/10">
           {timeSlots.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">
-              No sessions are configured. Add sessions to build the weekly schedule.
+              No sessions are configured for this week.
+              {scheduleWeek === null
+                ? " Create the week from the master template to get started."
+                : " Add slots to the master template, or edit this week's sessions."}
             </p>
           ) : (
             <div className="min-w-[860px]">
@@ -367,14 +516,24 @@ export const ScheduleBuilder = ({
                             ).map((assignment) => ({
                               assignmentId: assignment.id,
                               coach: coachesById.get(assignment.coachId),
+                              role: assignment.role,
+                              sub: assignment.sub,
                             }));
+                            const requirement = session.programId
+                              ? requirementByProgram.get(session.programId)
+                              : undefined;
+                            const requiredCount = requirement
+                              ? requirement.requiredLeadCount + requirement.requiredAssistantCount
+                              : 1;
 
                             return (
                               <SessionCard
                                 key={session.id}
                                 session={session}
                                 assigned={assigned}
+                                requiredCount={requiredCount}
                                 blockingConflicts={blockingCount}
+                                isChanged={changedSessions.has(session.id)}
                                 isSelected={session.id === selectedSessionId}
                                 onSelect={() => setSelectedSessionId(session.id)}
                               />
@@ -400,9 +559,21 @@ export const ScheduleBuilder = ({
               availability={availability}
               weekStartDate={weekStartDate}
               sessionConflicts={selectedConflicts}
+              roster={
+                selectedSession?.programId
+                  ? rosterByProgram.get(selectedSession.programId) ?? null
+                  : null
+              }
+              requirement={
+                selectedSession?.programId
+                  ? requirementByProgram.get(selectedSession.programId) ?? null
+                  : null
+              }
+              adultsPerCoach={adultsPerCoach}
               pending={isPending}
               onAssign={handleAssign}
               onUnassign={handleUnassign}
+              onSaveHeadcount={handleSaveSessionHeadcount}
             />
           </div>
         </div>

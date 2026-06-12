@@ -14,6 +14,7 @@ export type RawWorkloadAssignment = {
   coachId: string;
   coachName: string;
   coachTitle: string | null;
+  contractedWeeklyHours: number | null;
   durationMinutes: number;
   programType: string | null;
   weekStartDate: string;
@@ -41,7 +42,13 @@ export const buildCoachWorkload = (
 ): CoachWorkloadRow[] => {
   const byCoach = new Map<
     string,
-    { fullName: string; title: string | null; minutes: number; count: number }
+    {
+      fullName: string;
+      title: string | null;
+      contractedWeeklyHours: number | null;
+      minutes: number;
+      count: number;
+    }
   >();
 
   for (const row of rows) {
@@ -51,6 +58,7 @@ export const buildCoachWorkload = (
     const existing = byCoach.get(row.coachId) ?? {
       fullName: row.coachName,
       title: row.coachTitle,
+      contractedWeeklyHours: row.contractedWeeklyHours,
       minutes: 0,
       count: 0,
     };
@@ -63,7 +71,7 @@ export const buildCoachWorkload = (
 
   return [...byCoach.entries()]
     .map(([coachId, data]) => {
-      const contracted = contractedMinutesWeekly(data.title);
+      const contracted = contractedMinutesWeekly(data.title, data.contractedWeeklyHours);
       const avgWeeklyMinutes = weeksInPeriod > 0 ? data.minutes / weeksInPeriod : 0;
       const variance = avgWeeklyMinutes - contracted;
       const utilizationPct =

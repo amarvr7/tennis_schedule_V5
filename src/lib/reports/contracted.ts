@@ -16,8 +16,15 @@ const TITLE_CONTRACTED_HOURS: ReadonlyArray<{ match: RegExp; weeklyHours: number
 
 const DEFAULT_WEEKLY_HOURS = 40;
 
-/** Expected weekly contracted minutes for a coach title. */
-export const contractedMinutesWeekly = (title: string | null | undefined): number => {
+/** Expected weekly contracted minutes — per-coach override wins over title defaults. */
+export const contractedMinutesWeekly = (
+  title: string | null | undefined,
+  contractedWeeklyHours?: number | null,
+): number => {
+  if (contractedWeeklyHours != null && !Number.isNaN(contractedWeeklyHours)) {
+    return contractedWeeklyHours * 60;
+  }
+
   if (!title) return DEFAULT_WEEKLY_HOURS * 60;
   for (const entry of TITLE_CONTRACTED_HOURS) {
     if (entry.match.test(title)) return entry.weeklyHours * 60;

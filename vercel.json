@@ -1,0 +1,20 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/availability?action=open",
+      "schedule": "0 11 * * 1"
+    },
+    {
+      "path": "/api/cron/availability?action=remind",
+      "schedule": "0 11 * * 2"
+    },
+    {
+      "path": "/api/cron/availability?action=remind",
+      "schedule": "0 11 * * 3"
+    },
+    {
+      "path": "/api/cron/availability?action=close",
+      "schedule": "0 21 * * 4"
+    }
+  ]
+}

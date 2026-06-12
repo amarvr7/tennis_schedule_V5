@@ -28,6 +28,9 @@ export type CoachRecord = {
   is_admin: boolean;
   is_active: boolean;
   onboarding_status: string | null;
+  email?: string | null;
+  phone?: string | null;
+  preferred_channel?: string;
   created_at: string;
 };
 

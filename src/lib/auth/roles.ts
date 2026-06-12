@@ -19,6 +19,16 @@ export type CoachRole = {
 export const getCoachView = ({ is_admin }: CoachRole): CoachView =>
   is_admin ? "admin" : "readonly";
 
+/**
+ * Camp Director (CURSOR_ANSWERS.md): read-only visibility of ALL camp
+ * sessions, the camp weekly schedule, and camp-touching changes. Title-driven
+ * visibility only — NEVER admin access (admin remains is_admin-only).
+ */
+export const CAMP_DIRECTOR_TITLE = "Camp Director";
+
+export const isCampDirector = ({ title }: CoachRole): boolean =>
+  title === CAMP_DIRECTOR_TITLE;
+
 /** Landing route for each view, used for post-login redirects. */
 export const VIEW_HOME: Record<CoachView, string> = {
   admin: "/admin/schedule",
